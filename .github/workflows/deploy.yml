@@ -1,5 +1,7 @@
 name: Deploy isolated camera grid
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

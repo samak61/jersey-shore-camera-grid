@@ -10,7 +10,7 @@ test('worker confines requests, rewrites playlists, preserves access denials and
  let calls=0;globalThis.fetch=async(_url,options)=>{calls++;assert.equal(options.redirect,'manual');assert.equal(options.headers.get('Referer'),'https://coastalcameranetwork.com/');assert.equal(options.headers.get('Origin'),'https://coastalcameranetwork.com');return new Response('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\nsegment.ts\n',{headers:{'Content-Type':'application/vnd.apple.mpegurl'}});};
  try{
   for(const url of ['https://example.com/x.m3u8','http://seagirt.cdn.coastalcameranetwork.com/New_Jersey/seagirt.stream/index.m3u8','https://seagirt.cdn.coastalcameranetwork.com/private/index.m3u8','https://user:pass@seagirt.cdn.coastalcameranetwork.com/New_Jersey/seagirt.stream/index.m3u8']){assert.equal((await get('/stream?url='+encodeURIComponent(url))).status,403);}assert.equal(calls,0);
-  let r=await get('/stream');assert.equal(r.status,200);const text=await r.text();assert.match(text,/URI="\/stream\?url=/);assert.match(text,/%2Fsegment.ts/);assert.match(text,/%2Fkey.bin/);
+  let r=await get('/stream');assert.equal(r.status,200);const text=await r.text();assert.match(text,/URI="https:\/\/camera\.example\/hls\/key\.bin\?url=/);assert.match(text,/%2Fsegment.ts/);assert.match(text,/%2Fkey.bin/);
   globalThis.fetch=async()=>new Response('denied',{status:403});assert.equal((await get('/stream')).status,403);
   globalThis.fetch=async()=>new Response(null,{status:302,headers:{Location:'https://example.com/private'}});assert.equal((await get('/stream')).status,502);
   r=await get('/');assert.equal(r.status,200);const markup=await r.text();assert.match(markup,/Sea Girt Center/);for(const match of markup.matchAll(/<script>([\s\S]*?)<\/script>/g))new vm.Script(match[1]);
@@ -48,8 +48,8 @@ test('all nine camera configurations use the working Sea Girt headers for playli
    };
    const playlist=await get('/stream',config.vars);assert.equal(playlist.status,200);
    const segment=(await playlist.text()).trim().split('\n')[1];
-   const response=await worker.fetch(new Request('https://camera.example'+segment,{headers:{Range:'bytes=0-3',Referer:'https://viewer.example/',Origin:'https://viewer.example',Authorization:'test-credential',Cookie:'session=test'}}),config.vars);
-   assert.equal(response.status,206);assert.equal(response.headers.get('Content-Range'),'bytes 0-3/4');assert.equal(await response.text(),'data');assert.equal(calls,2);
+   const response=await worker.fetch(new Request(new URL(segment,'https://camera.example'),{headers:{Range:'bytes=0-3',Referer:'https://viewer.example/',Origin:'https://viewer.example',Authorization:'test-credential',Cookie:'session=test'}}),config.vars);
+   assert.equal(response.status,206);assert.equal(response.headers.get('Content-Type'),'video/mp2t');assert.equal(response.headers.get('Content-Range'),'bytes 0-3/4');assert.equal(await response.text(),'data');assert.equal(calls,2);
   }
  }finally{globalThis.fetch=originalFetch;}
 });

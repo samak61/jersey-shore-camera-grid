@@ -16,24 +16,96 @@ function html(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<
 function player(request,env){
  const url=new URL(request.url),requested=url.searchParams.get('url')||env.SOURCE_URL;if(!allowed(requested,env))return plain('This Worker is configured for one camera only.',403);
  const title=html(env.CAMERA_NAME||'Beach camera');const src=JSON.stringify(relay(requested,requested,env,request.url)).replace(/</g,'\\u003c');
- return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05090c;color:#d8e5eb;font:13px system-ui}video{display:block;width:100%;height:100%;object-fit:contain}#message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px;background:#091217dc;line-height:1.6}#message[hidden]{display:none}button{padding:9px 15px;border-radius:6px;border:0;background:#9ce4cf;color:#143b30;cursor:pointer}</style><script src="${HLS_LIBRARY}"></script></head><body><video id="video" autoplay muted playsinline disableremoteplayback controls></video><div id="message">Connecting ${title}…</div><script>
+ return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05090c;color:#d8e5eb;font:13px system-ui}video{display:block;width:100%;height:100%;object-fit:contain}#message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px;background:#091217dc;line-height:1.6}#message[hidden]{display:none}#message[data-state="buffering"]{inset:auto 8px 8px auto;padding:5px 9px;border-radius:5px;font-size:12px;background:#091217bb}button{padding:9px 15px;border-radius:6px;border:0;background:#9ce4cf;color:#143b30;cursor:pointer}</style><script src="${HLS_LIBRARY}"></script></head><body><video id="video" autoplay muted playsinline disableremoteplayback controls></video><div id="message">Connecting ${title}…</div><script>
 const source=${src},v=document.getElementById('video'),m=document.getElementById('message');
 v.muted=true;v.defaultMuted=true;v.playsInline=true;v.disableRemotePlayback=true;
-let hls=null,retry=null,attempt=0,lastProgress=Date.now(),lastTime=-1,blocked=false,stopped=false,generation=0,userPaused=false,liveSince=0;
+let hls=null,retry=null,waitingTimer=null,attempt=0,lastProgress=Date.now(),lastTime=-1;
+let blocked=false,stopped=false,generation=0,userPaused=false,liveSince=0,hasPlayed=false,hasManifest=false;
+let lastMediaRecovery=-Infinity,internalPauseUntil=0,lastState='',lastMessage='',nextRestart=0;
 let parentOrigin='';try{const requestedParent=new URL(location.href).searchParams.get('parent');if(requestedParent)parentOrigin=new URL(requestedParent).origin;}catch{}
-function state(value,message=''){m.hidden=value==='live';if(!m.hidden)m.textContent=message||({connecting:'Connecting…',buffering:'Buffering…',ready:'Tap to play',retry:'Reconnecting…',error:'Camera unavailable',blocked:'The camera provider denied this request.'}[value]||value);if(parentOrigin&&parent!==window)parent.postMessage({type:'beach-camera-state',state:value,message},parentOrigin);}
-function clear(){stopped=true;generation++;clearTimeout(retry);retry=null;if(hls){hls.destroy();hls=null;}v.pause();v.removeAttribute('src');v.load();}
-function play(){const g=generation;v.play().catch(e=>{if(g!==generation)return;if(e.name==='NotAllowedError'){state('ready');m.textContent='';const b=document.createElement('button');b.textContent='Play camera';b.onclick=()=>{userPaused=false;stopped=false;lastProgress=Date.now();play();};m.append(b);stopped=true;}});}
-function recover(message){if(retry||blocked)return;clear();attempt=Math.min(attempt+1,5);const delay=Math.min(60000,4000*2**(attempt-1));state('retry',message+' Retrying in '+delay/1000+' seconds.');retry=setTimeout(()=>{retry=null;start();},delay);}
-function start(){clear();blocked=false;stopped=false;userPaused=false;lastProgress=Date.now();lastTime=-1;liveSince=0;state('connecting');const g=generation;
-if(window.Hls&&Hls.isSupported()){hls=new Hls({capLevelToPlayerSize:true,maxBufferLength:10,maxMaxBufferLength:20,backBufferLength:0,maxBufferSize:12000000,liveSyncDurationCount:3});hls.on(Hls.Events.MANIFEST_PARSED,play);hls.on(Hls.Events.ERROR,(_e,d)=>{if(g!==generation||!d.fatal)return;if(d.response?.code===401||d.response?.code===403){blocked=true;clear();state('blocked','The camera provider denied playback.');return;}recover('The camera connection failed'+(d.response?.code?' (HTTP '+d.response.code+')':'')+'.');});hls.loadSource(source);hls.attachMedia(v);}
-else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=source;v.onloadedmetadata=()=>{if(g===generation)play();};play();}
-else state('error','This browser could not load the video player.');}
-v.addEventListener('timeupdate',()=>{if(stopped)return;if(v.currentTime!==lastTime&&v.readyState>=2){lastTime=v.currentTime;lastProgress=Date.now();if(!liveSince)liveSince=Date.now();if(Date.now()-liveSince>30000)attempt=0;state('live');}});
-v.addEventListener('waiting',()=>{if(!stopped){liveSince=0;state('buffering');}});
-v.addEventListener('pause',()=>{if(!stopped)userPaused=true;});v.addEventListener('play',()=>{userPaused=false;lastProgress=Date.now();});
+function state(value,message=''){
+ if(value===lastState&&message===lastMessage)return;
+ lastState=value;lastMessage=message;m.dataset.state=value;m.hidden=value==='live';
+ if(!m.hidden)m.textContent=message||({connecting:'Connecting…',buffering:'Buffering…',ready:'Tap to play',retry:'Reconnecting…',error:'Camera unavailable',blocked:'The camera provider denied this request.'}[value]||value);
+ if(parentOrigin&&parent!==window)parent.postMessage({type:'beach-camera-state',state:value,message},parentOrigin);
+}
+function clear(){
+ stopped=true;generation++;clearTimeout(retry);retry=null;clearTimeout(waitingTimer);waitingTimer=null;
+ if(hls){hls.destroy();hls=null;}v.pause();v.removeAttribute('src');v.load();
+}
+function play(){
+ const g=generation;
+ v.play().catch(e=>{if(g!==generation)return;if(e.name==='NotAllowedError'){
+  state('ready');m.textContent='';const b=document.createElement('button');b.textContent='Play camera';
+  b.onclick=()=>{userPaused=false;stopped=false;lastProgress=Date.now();play();};m.append(b);stopped=true;
+ }});
+}
+// Retry downloads in place: keep decoded/buffered video instead of destroying it.
+function recover(message,kind='network'){
+ if(retry||blocked||stopped||userPaused)return;
+ attempt=Math.min(attempt+1,5);
+ let delay=Math.min(60000,4000*2**(attempt-1));
+ if(kind==='media')delay=Math.max(delay,30000-(Date.now()-lastMediaRecovery));
+ if(!hls)delay=Math.max(delay,nextRestart-Date.now());
+ state(hasPlayed?'buffering':'retry',message+' Retrying in '+Math.ceil(delay/1000)+' seconds.');
+ const g=generation;
+ retry=setTimeout(()=>{
+  retry=null;if(g!==generation||blocked||stopped||userPaused)return;
+  if(!hls){start();return;}
+  if(kind==='media'){
+   lastMediaRecovery=Date.now();internalPauseUntil=Date.now()+3000;
+   hls.recoverMediaError();
+  }else if(hasManifest){
+   // skipSeekToStartPosition preserves the playback position on network recovery.
+   hls.startLoad(-1,true);
+  }else hls.loadSource(source);
+ },delay);
+}
+function start(){
+ clear();blocked=false;stopped=false;userPaused=false;lastProgress=Date.now();lastTime=-1;liveSince=0;hasPlayed=false;hasManifest=false;
+ nextRestart=Date.now()+90000;state('connecting');const g=generation;
+ if(window.Hls&&Hls.isSupported()){
+  // Favor steady viewing over the smallest live delay, especially with nine decoders.
+  hls=new Hls({capLevelToPlayerSize:true,ignoreDevicePixelRatio:true,capLevelOnFPSDrop:true,
+   lowLatencyMode:false,maxBufferLength:30,maxMaxBufferLength:45,backBufferLength:10,
+   maxBufferSize:18000000,liveSyncDurationCount:6,maxLiveSyncPlaybackRate:1,startLevel:0});
+  hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(g!==generation)return;hasManifest=true;play();});
+  hls.on(Hls.Events.ERROR,(_e,d)=>{
+   if(g!==generation||stopped||!d.fatal)return;
+   if(d.response?.code===401||d.response?.code===403){blocked=true;clear();state('blocked','The camera provider denied playback.');return;}
+   recover('The camera connection was interrupted'+(d.response?.code?' (HTTP '+d.response.code+')':'' )+'.',d.type===Hls.ErrorTypes.MEDIA_ERROR?'media':'network');
+  });
+  hls.loadSource(source);hls.attachMedia(v);
+ }else if(v.canPlayType('application/vnd.apple.mpegurl')){
+  v.src=source;v.onloadedmetadata=()=>{if(g===generation)play();};play();
+ }else{stopped=true;state('error','This browser could not load the video player.');}
+}
+v.addEventListener('timeupdate',()=>{
+ if(stopped||v.seeking)return;
+ if(v.currentTime!==lastTime&&v.readyState>=2){
+  lastTime=v.currentTime;lastProgress=Date.now();hasPlayed=true;
+  clearTimeout(waitingTimer);waitingTimer=null;
+  if(!liveSince)liveSince=Date.now();if(Date.now()-liveSince>30000)attempt=0;
+  state('live');
+ }
+});
+v.addEventListener('waiting',()=>{
+ if(stopped||userPaused||waitingTimer)return;
+ liveSince=0;const g=generation;
+ // Brief segment-boundary pauses must not flash a full-screen overlay.
+ waitingTimer=setTimeout(()=>{waitingTimer=null;if(g===generation&&!stopped&&!userPaused)state('buffering');},1500);
+});
+v.addEventListener('canplay',()=>{if(!stopped&&!userPaused&&v.paused)play();});
+v.addEventListener('pause',()=>{if(!stopped&&Date.now()>=internalPauseUntil)userPaused=true;});
+v.addEventListener('play',()=>{userPaused=false;lastProgress=Date.now();});
 v.addEventListener('error',()=>{if(!hls&&!stopped)recover('The source could not be loaded.');});
-setInterval(()=>{if(!stopped&&!userPaused&&!retry&&!blocked&&Date.now()-lastProgress>35000)recover('No new video has arrived.');},5000);
+setInterval(()=>{
+ if(stopped||userPaused||blocked)return;
+ const stalled=Date.now()-lastProgress;
+ // A full restart is a last resort after 90 seconds without video, never every few seconds.
+ if(stalled>90000&&Date.now()>=nextRestart){start();return;}
+ if(stalled>45000&&!retry)recover('Waiting for fresh video.');
+},5000);
 start();
 </script></body></html>`,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'strict-origin-when-cross-origin','X-Content-Type-Options':'nosniff'}});
 }

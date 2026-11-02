@@ -1,0 +1,65 @@
+[
+  {
+    "id": "sea-bright",
+    "name": "Sea Bright",
+    "worker": "beach-wall-sea-bright",
+    "source": "https://seabrightNJ.cdn.coastalcameranetwork.com/sunba/seabrightNJ/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/sea-bright-beach-cam-and-surf-report/"
+  },
+  {
+    "id": "monmouth-beach",
+    "name": "Monmouth Beach",
+    "worker": "beach-wall-monmouth-beach",
+    "source": "https://monmouthbeachnj.cdn.coastalcameranetwork.com/sunba/monmouthbeachnj/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/monmouth-beach-cam-and-surf-report/"
+  },
+  {
+    "id": "belmar",
+    "name": "Belmar",
+    "worker": "beach-wall-belmar",
+    "source": "https://belmar.cdn.coastalcameranetwork.com/New_Jersey/easternlinesbelmar.stream/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/belmar-beach-cam-and-surf-report/"
+  },
+  {
+    "id": "spring-lake",
+    "name": "Spring Lake",
+    "worker": "beach-wall-spring-lake",
+    "source": "https://springlake.cdn.coastalcameranetwork.com/New_Jersey/spring/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/spring-lake-beach-cam-and-surf-report/"
+  },
+  {
+    "id": "sea-girt-north",
+    "name": "Sea Girt North",
+    "page": "https://www.seagirtbeachpatrol.org/beach-cams/",
+    "worker": "beach-wall-sea-girt-north",
+    "source": "https://seagirtnorthccn.b-cdn.net/New_Jersey/seagirt-north.stream/index.m3u8"
+  },
+  {
+    "id": "sea-girt-center",
+    "name": "Sea Girt Center",
+    "worker": "beach-wall-sea-girt-center",
+    "source": "https://seagirt.cdn.coastalcameranetwork.com/New_Jersey/seagirt.stream/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/sea-girt-beach-cam-and-surf-report/"
+  },
+  {
+    "id": "sea-girt-south",
+    "name": "Sea Girt South",
+    "worker": "beach-wall-sea-girt-south",
+    "source": "https://seagirtsouth.cdn.coastalcameranetwork.com/New_Jersey/seagirtsouth.stream/index.m3u8",
+    "page": "https://www.seagirtbeachpatrol.org/beach-cams/"
+  },
+  {
+    "id": "manasquan",
+    "name": "Manasquan",
+    "worker": "beach-wall-manasquan",
+    "source": "https://manasquan.cdn.coastalcameranetwork.com/sunba/manasquan/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/manasquan-beach-cam-and-surf-report/"
+  },
+  {
+    "id": "bay-head",
+    "name": "Bay Head",
+    "worker": "beach-wall-bay-head",
+    "source": "https://bayhead.cdn.coastalcameranetwork.com/ptzcamera/bayhead/index.m3u8",
+    "page": "https://thesurfersview.com/live-cams/new-jersey/bay-head-beach-cam-and-surf-report/"
+  }
+]

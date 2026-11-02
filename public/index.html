@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1218">
+  <meta name="description" content="Nine Jersey Shore beach cameras in one quiet, personal viewing wall.">
+  <title>Jersey Shore · Camera Wall</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="cameras.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="wall">
+    <header class="toolbar">
+      <div class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M3 14c5-7 10 7 15 0s10 7 15 0M3 22c5-7 10 7 15 0s10 7 15 0"/></svg><div><h1>Jersey Shore</h1><p>Nine views. One coastline.</p></div></div>
+      <div class="actions">
+        <button id="play-all" class="primary">Pause all</button>
+        <button id="reload-all" title="Reconnect all nine cameras">Reconnect</button>
+        <button id="fullscreen">Fullscreen</button>
+        <button id="settings" class="icon-button" aria-label="Camera settings" title="Camera settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg></button>
+      </div>
+    </header>
+    <main id="grid" aria-label="Nine beach cameras"></main>
+    <footer><span id="summary" role="status" aria-live="polite">Connecting cameras…</span><span class="footer-right"><button id="awake" aria-pressed="false">Keep screen awake</button><time id="clock"></time></span></footer>
+    <button id="back" hidden>← Back to nine cameras</button>
+  </div>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <form id="settings-form">
+      <div class="dialog-heading"><div><p class="eyebrow">YOUR CAMERA WALL</p><h2 id="settings-title">Camera settings</h2></div><button type="button" id="close-settings" aria-label="Close camera settings">✕</button></div>
+      <p class="hint">Use the HTTPS player URL for each camera Worker. Changes are saved in this browser.</p>
+      <div id="source-fields"></div>
+      <p id="settings-error" class="error" role="alert"></p>
+      <div class="dialog-footer"><button type="button" id="restore">Restore original cameras</button><button type="submit" class="primary">Save cameras</button></div>
+    </form>
+  </dialog>
+  <div id="toast" role="status" hidden></div>
+  <noscript>This camera wall needs JavaScript enabled to play the streams.</noscript>
+</body>
+</html>

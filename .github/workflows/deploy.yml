@@ -1,0 +1,64 @@
+name: Deploy isolated camera grid
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: isolated-camera-grid
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      subdomain: ${{ steps.account.outputs.subdomain }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify the separate Cloudflare account
+        id: account
+        run: node scripts/account.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - run: node scripts/build.mjs
+        env:
+          WORKERS_SUBDOMAIN: ${{ steps.account.outputs.subdomain }}
+      - run: node --test scripts/*.test.mjs
+  workers:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 2
+      fail-fast: false
+      matrix:
+        camera: [sea-bright, monmouth-beach, belmar, spring-lake, sea-girt-north, sea-girt-center, sea-girt-south, manasquan, bay-head]
+    steps:
+      - uses: actions/checkout@v6
+      - run: node scripts/build.mjs
+        env:
+          WORKERS_SUBDOMAIN: ${{ needs.validate.outputs.subdomain }}
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/configs/${{ matrix.camera }}/wrangler.json
+  pages:
+    needs: [validate, workers]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: node scripts/build.mjs
+        env:
+          WORKERS_SUBDOMAIN: ${{ needs.validate.outputs.subdomain }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+      - uses: actions/deploy-pages@v4
+        id: deployment

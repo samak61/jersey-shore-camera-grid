@@ -8,15 +8,16 @@
   <title>Jersey Shore · Camera Wall</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="cameras.js"></script>
-  <script defer src="app.js?v=steady-3"></script>
+  <script defer src="app.js?v=ipad-4"></script>
 </head>
 <body>
   <div id="wall">
     <header class="toolbar">
       <div class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M3 14c5-7 10 7 15 0s10 7 15 0M3 22c5-7 10 7 15 0s10 7 15 0"/></svg><div><h1>Jersey Shore</h1><p>Nine views. One coastline.</p></div></div>
       <div class="actions">
+        <button id="mode">Use 3-camera mode</button>
         <button id="play-all" class="primary">Pause all</button>
-        <button id="reload-all" title="Reconnect all nine cameras">Reconnect</button>
+        <button id="reload-all" title="Reconnect active cameras">Reconnect</button>
         <button id="fullscreen">Fullscreen</button>
         <button id="settings" class="icon-button" aria-label="Camera settings" title="Camera settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg></button>
       </div>
